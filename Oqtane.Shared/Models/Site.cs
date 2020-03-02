@@ -1,5 +1,4 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Oqtane.Models
 {
@@ -8,7 +7,7 @@ namespace Oqtane.Models
         public int SiteId { get; set; }
         public int TenantId { get; set; }
         public string Name { get; set; }
-        public string Logo { get; set; }
+        public int? LogoFileId { get; set; }
         public string DefaultThemeType { get; set; }
         public string DefaultLayoutType { get; set; }
         public string DefaultContainerType { get; set; }
@@ -21,23 +20,5 @@ namespace Oqtane.Models
         public string DeletedBy { get; set; }
         public DateTime? DeletedOn { get; set; }
         public bool IsDeleted { get; set; }
-
-        [NotMapped]
-        public string TenantRootPath
-        {
-            get
-            {
-                return "Tenants/" + TenantId.ToString() + "/";
-            }
-        }
-
-        [NotMapped]
-        public string SiteRootPath
-        {
-            get
-            {
-                return "Tenants/" + TenantId.ToString() + "/Sites/" + SiteId.ToString() + "/";
-            }
-        }
     }
 }

@@ -25,9 +25,14 @@
         public const string PageManagementModule = "Oqtane.Modules.Admin.Pages, Oqtane.Client";
         public const string ModuleMessageComponent = "Oqtane.Modules.Controls.ModuleMessage, Oqtane.Client";
 
+        public const string HostUser = "host";
+
         public const string AllUsersRole = "All Users";
         public const string HostRole = "Host Users";
         public const string AdminRole = "Administrators";
         public const string RegisteredRole = "Registered Users";
+
+        public const string ImageFiles = "jpg,jpeg,jpe,gif,bmp,png";
+        public const string UploadableFiles = "jpg,jpeg,jpe,gif,bmp,png,mov,wmv,avi,mp4,mp3,doc,docx,xls,xlsx,ppt,pptx,pdf,txt,zip,nupkg";
     }
 }

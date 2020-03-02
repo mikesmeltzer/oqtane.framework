@@ -29,13 +29,6 @@ namespace Oqtane.Modules
         [CascadingParameter] 
         protected ModuleInstance ModuleInstance { get; set; }
 
-        protected ModuleDefinition ModuleDefinition
-        {
-            get
-            {
-                return PageState.ModuleDefinitions.Where(item => item.ModuleDefinitionName == ModuleState.ModuleDefinitionName).FirstOrDefault();
-            }
-        }
 
         // optional interface properties
         public virtual SecurityAccessLevel SecurityAccessLevel { get { return SecurityAccessLevel.View; } set { } } // default security
@@ -107,6 +100,17 @@ namespace Oqtane.Modules
         public string EditUrl(string path, int moduleid, string action, string parameters)
         {
             return Utilities.EditUrl(PageState.Alias.Path, path, moduleid, action, parameters);
+        }
+
+        public string ContentUrl(int fileid)
+        {
+            string apiurl = PageState.Uri.Scheme + "://" + PageState.Alias.Name + "/";
+            if (PageState.Alias.Path == "")
+            {
+                apiurl += "~/";
+            }
+            apiurl += "api/File/Download/" + fileid.ToString();
+            return apiurl;
         }
 
         // user feedback methods

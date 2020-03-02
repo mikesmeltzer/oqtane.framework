@@ -22,20 +22,15 @@ namespace Oqtane.Controllers
 
         // GET: api/<controller>?siteid=x
         [HttpGet]
+        [Authorize(Roles = Constants.RegisteredRole)]
         public IEnumerable<Role> Get(string siteid)
         {
-            if (siteid == "")
-            {
-                return Roles.GetRoles();
-            }
-            else
-            {
-                return Roles.GetRoles(int.Parse(siteid));
-            }
+            return Roles.GetRoles(int.Parse(siteid));
         }
 
         // GET api/<controller>/5
         [HttpGet("{id}")]
+        [Authorize(Roles = Constants.RegisteredRole)]
         public Role Get(int id)
         {
             return Roles.GetRole(id);

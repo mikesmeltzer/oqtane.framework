@@ -85,7 +85,7 @@
                             <label for="Title" class="control-label" style="font-weight: bold">Username: </label>
                         </td>
                         <td>
-                            <input type="text" class="form-control" @bind="@HostUsername" />
+                            <input type="text" class="form-control" @bind="@HostUsername" readonly />
                         </td>
                     </tr>
                     <tr>
@@ -94,6 +94,14 @@
                         </td>
                         <td>
                             <input type="password" class="form-control" @bind="@HostPassword" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label for="Title" class="control-label" style="font-weight: bold">Confirm: </label>
+                        </td>
+                        <td>
+                            <input type="password" class="form-control" @bind="@ConfirmPassword" />
                         </td>
                     </tr>
                     <tr>
@@ -123,8 +131,9 @@
     private string DatabaseName = "Oqtane-" + DateTime.Now.ToString("yyyyMMddHHmm");
     private string Username = "";
     private string Password = "";
-    private string HostUsername = "host";
+    private string HostUsername = Constants.HostUser;
     private string HostPassword = "";
+    private string ConfirmPassword = "";
     private string HostEmail = "";
     private string Message = "";
 
@@ -133,7 +142,7 @@
 
     private void SetIntegratedSecurity(ChangeEventArgs e)
     {
-        if (Convert.ToBoolean(e.Value))
+        if (Convert.ToBoolean((string)e.Value))
         {
             IntegratedSecurityDisplay = "display: none;";
         }
@@ -145,7 +154,7 @@
 
     private async Task Install()
     {
-        if (HostUsername != "" & HostPassword.Length >= 6 & HostEmail != "")
+        if (HostUsername != "" && HostPassword.Length >= 6 && HostPassword == ConfirmPassword && HostEmail != "")
         {
             LoadingDisplay = "";
             StateHasChanged();
@@ -174,11 +183,11 @@
                 Site site = new Site();
                 site.TenantId = -1; // will be populated on server
                 site.Name = "Default Site";
-                site.Logo = "oqtane.png";
+                site.LogoFileId = null;
                 site.DefaultThemeType = Constants.DefaultTheme;
                 site.DefaultLayoutType = Constants.DefaultLayout;
                 site.DefaultContainerType = Constants.DefaultContainer;
-                site = await SiteService.AddSiteAsync(site);
+                site = await SiteService.AddSiteAsync(site, null);
 
                 User user = new User();
                 user.SiteId = site.SiteId;
@@ -198,7 +207,7 @@
         }
         else
         {
-            Message = "<div class=\"alert alert-danger\" role=\"alert\">Username And Email Must Be Provided And Password Must Be Greater Than 5 Characters</div>";
+            Message = "<div class=\"alert alert-danger\" role=\"alert\">Please Enter All Fields And Ensure Passwords Match And Are Greater Than 5 Characters In Length</div>";
         }
     }
 }

@@ -17,6 +17,9 @@ namespace Oqtane.Repository
         public virtual DbSet<Permission> Permission { get; set; }
         public virtual DbSet<Setting> Setting { get; set; }
         public virtual DbSet<Log> Log { get; set; }
+        public virtual DbSet<Notification> Notification { get; set; }
+        public virtual DbSet<Folder> Folder { get; set; }
+        public virtual DbSet<File> File { get; set; }
 
         public TenantDBContext(ITenantResolver TenantResolver, IHttpContextAccessor accessor) : base(TenantResolver, accessor)
         {

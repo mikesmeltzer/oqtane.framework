@@ -29,6 +29,7 @@ namespace Oqtane.Controllers
 
         // GET: api/<controller>
         [HttpGet]
+        [Authorize(Roles = Constants.HostRole)]
         public IEnumerable<Site> Get()
         {
             return Sites.GetSites();
@@ -62,12 +63,7 @@ namespace Oqtane.Controllers
                 if (authorized)
                 {
                     Site = Sites.AddSite(Site);
-                    string folder = environment.WebRootPath + "\\Tenants\\" + Tenants.GetTenant().TenantId.ToString() + "\\Sites\\" + Site.SiteId.ToString();
-                    if (!Directory.Exists(folder))
-                    {
-                        Directory.CreateDirectory(folder);
-                    }
-                    logger.Log(LogLevel.Information, this, LogFunction.Create, "Site Added {Site}", Site);
+                    logger.Log(Site.SiteId, LogLevel.Information, this, LogFunction.Create, "Site Added {Site}", Site);
                 }
             }
             return Site;
@@ -81,7 +77,7 @@ namespace Oqtane.Controllers
             if (ModelState.IsValid)
             {
                 Site = Sites.UpdateSite(Site);
-                logger.Log(LogLevel.Information, this, LogFunction.Update, "Site Updated {Site}", Site);
+                logger.Log(Site.SiteId, LogLevel.Information, this, LogFunction.Update, "Site Updated {Site}", Site);
             }
             return Site;
         }
@@ -91,8 +87,16 @@ namespace Oqtane.Controllers
         [Authorize(Roles = Constants.HostRole)]
         public void Delete(int id)
         {
-            Sites.DeleteSite(id);
-            logger.Log(LogLevel.Information, this, LogFunction.Delete, "Site Deleted {SiteId}", id);
+            Site Site = Sites.GetSite(id);
+            if (Sites.GetSites().Count() > 1)
+            {
+                Sites.DeleteSite(id);
+                logger.Log(Site.SiteId, LogLevel.Information, this, LogFunction.Delete, "Site Deleted {SiteId}", id);
+            }
+            else
+            {
+                logger.Log(Site.SiteId, LogLevel.Warning, this, LogFunction.Delete, "Unable to delete the root site.");
+            }
         }
     }
 }

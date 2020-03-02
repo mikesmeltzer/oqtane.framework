@@ -6,6 +6,7 @@ using System.Net.Http;
 using Microsoft.AspNetCore.Components;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Net;
 
 namespace Oqtane.Services
 {
@@ -25,12 +26,6 @@ namespace Oqtane.Services
         private string apiurl
         {
             get { return CreateApiUrl(sitestate.Alias, NavigationManager.Uri, "User"); }
-        }
-
-        public async Task<List<User>> GetUsersAsync()
-        {
-            List<User> users = await http.GetJsonAsync<List<User>>(apiurl);
-            return users.OrderBy(item => item.DisplayName).ToList();
         }
 
         public async Task<User> GetUserAsync(int UserId, int SiteId)
@@ -59,7 +54,7 @@ namespace Oqtane.Services
         {
             try
             {
-                return await http.PostJsonAsync<User>(CreateApiUrl(Alias, NavigationManager.Uri, "User"), User);
+                return await http.PostJsonAsync<User>(apiurl + "?alias=" + WebUtility.UrlEncode(Alias.Name), User);
             }
             catch
             {
@@ -86,5 +81,21 @@ namespace Oqtane.Services
             // best practices recommend post is preferrable to get for logout
             await http.PostJsonAsync(apiurl + "/logout", User); 
         }
+
+        public async Task<User> VerifyEmailAsync(User User, string Token)
+        {
+            return await http.PostJsonAsync<User>(apiurl + "/verify?token=" + Token, User);
+        }
+
+        public async Task ForgotPasswordAsync(User User)
+        {
+            await http.PostJsonAsync(apiurl + "/forgot", User);
+        }
+
+        public async Task<User> ResetPasswordAsync(User User, string Token)
+        {
+            return await http.PostJsonAsync<User>(apiurl + "/reset?token=" + Token, User);
+        }
+
     }
 }

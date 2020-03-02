@@ -46,14 +46,6 @@ else
     </tr>
     <tr>
         <td>
-            <label for="Name" class="control-label">Logo: </label>
-        </td>
-        <td>
-            <input class="form-control" @bind="@logo" />
-        </td>
-    </tr>
-    <tr>
-        <td>
             <label for="Name" class="control-label">Default Theme: </label>
         </td>
         <td>
@@ -101,7 +93,7 @@ else
                 <label for="Name" class="control-label">Host Username:</label>
             </td>
             <td>
-                <input class="form-control" @bind="@username" disabled />
+                <input class="form-control" @bind="@username" readonly />
             </td>
         </tr>
         <tr>
@@ -125,11 +117,11 @@ else
     Dictionary<string, string> panelayouts = new Dictionary<string, string>();
     Dictionary<string, string> containers = new Dictionary<string, string>();
 
+    List<Theme> Themes;
     List<Tenant> tenants;
     string tenantid = "-1";
     string name = "";
     string urls = "";
-    string logo = "";
     string themetype = "";
     string layouttype = "";
     string containertype = "";
@@ -139,11 +131,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        Themes = await ThemeService.GetThemesAsync();
         tenants = await TenantService.GetTenantsAsync();
         urls = PageState.Alias.Name;
-        themes = ThemeService.GetThemeTypes(PageState.Themes);
-        containers = ThemeService.GetContainerTypes(PageState.Themes);
-        username = PageState.User.Username;
+        themes = ThemeService.GetThemeTypes(Themes);
+        containers = ThemeService.GetContainerTypes(Themes);
+        username = Constants.HostUser;
     }
 
     private async void TenantChanged(ChangeEventArgs e)
@@ -175,7 +168,7 @@ else
             themetype = (string)e.Value;
             if (themetype != "")
             {
-                panelayouts = ThemeService.GetPaneLayoutTypes(PageState.Themes, themetype);
+                panelayouts = ThemeService.GetPaneLayoutTypes(Themes, themetype);
             }
             else
             {
@@ -208,6 +201,8 @@ else
 
             if (isvalid)
             {
+                ShowProgressIndicator();
+
                 List<Alias> aliases = new List<Alias>();
                 urls = urls.Replace("\n", ",");
                 foreach (string name in urls.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
@@ -223,7 +218,7 @@ else
                 Site site = new Site();
                 site.TenantId = int.Parse(tenantid);
                 site.Name = name;
-                site.Logo = (logo == null ? "" : logo);
+                site.LogoFileId = null;
                 site.DefaultThemeType = themetype;
                 site.DefaultLayoutType = (layouttype == null ? "" : layouttype);
                 site.DefaultContainerType = containertype;

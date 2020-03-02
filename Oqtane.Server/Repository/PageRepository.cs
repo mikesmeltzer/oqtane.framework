@@ -18,11 +18,6 @@ namespace Oqtane.Repository
             this.PageModules = PageModules;
         }
 
-        public IEnumerable<Page> GetPages()
-        {
-            return db.Page.ToList();
-        }
-
         public IEnumerable<Page> GetPages(int SiteId)
         {
             IEnumerable<Permission> permissions = Permissions.GetPermissions(SiteId, "Page").ToList();
@@ -55,7 +50,7 @@ namespace Oqtane.Repository
             Page page = db.Page.Find(PageId);
             if (page != null)
             {
-                IEnumerable<Permission> permissions = Permissions.GetPermissions("Page", page.PageId);
+                IEnumerable<Permission> permissions = Permissions.GetPermissions("Page", page.PageId).ToList();
                 page.Permissions = Permissions.EncodePermissions(page.PageId, permissions);
             }
             return page;
@@ -73,7 +68,7 @@ namespace Oqtane.Repository
                 }
                 if (page != null)
                 {
-                    IEnumerable<Permission> permissions = Permissions.GetPermissions("Page", page.PageId);
+                    IEnumerable<Permission> permissions = Permissions.GetPermissions("Page", page.PageId).ToList();
                     page.Permissions = Permissions.EncodePermissions(page.PageId, permissions);
                 }
             }

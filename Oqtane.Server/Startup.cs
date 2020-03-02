@@ -82,6 +82,9 @@ namespace Oqtane.Server
                 options.AddPolicy("EditPage", policy => policy.Requirements.Add(new PermissionRequirement("Page", "Edit")));
                 options.AddPolicy("ViewModule", policy => policy.Requirements.Add(new PermissionRequirement("Module", "View")));
                 options.AddPolicy("EditModule", policy => policy.Requirements.Add(new PermissionRequirement("Module", "Edit")));
+                options.AddPolicy("ViewFolder", policy => policy.Requirements.Add(new PermissionRequirement("Folder", "View")));
+                options.AddPolicy("EditFolder", policy => policy.Requirements.Add(new PermissionRequirement("Folder", "Edit")));
+                options.AddPolicy("ListFolder", policy => policy.Requirements.Add(new PermissionRequirement("Folder", "List")));
             });
 
             // register scoped core services
@@ -101,11 +104,13 @@ namespace Oqtane.Server
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IUserRoleService, UserRoleService>();
             services.AddScoped<ISettingService, SettingService>();
-            services.AddScoped<IFileService, FileService>();
             services.AddScoped<IPackageService, PackageService>();
             services.AddScoped<ILogService, LogService>();
             services.AddScoped<IJobService, JobService>();
             services.AddScoped<IJobLogService, JobLogService>();
+            services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IFolderService, FolderService>();
+            services.AddScoped<IFileService, FileService>();
 
             services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
@@ -179,76 +184,19 @@ namespace Oqtane.Server
             services.AddTransient<ILogManager, LogManager>();
             services.AddTransient<IJobRepository, JobRepository>();
             services.AddTransient<IJobLogRepository, JobLogRepository>();
+            services.AddTransient<INotificationRepository, NotificationRepository>();
+            services.AddTransient<IFolderRepository, FolderRepository>();
+            services.AddTransient<IFileRepository, FileRepository>();
 
-            // get list of loaded assemblies
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            string path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-            DirectoryInfo folder = new DirectoryInfo(path);
-            List<Assembly> moduleassemblies = new List<Assembly>();
+            services.AddOqtaneModules();
+            services.AddOqtaneThemes();
 
-            // iterate through Oqtane module assemblies in /bin ( filter is narrow to optimize loading process )
-            foreach (FileInfo file in folder.EnumerateFiles("*.Module.*.dll"))
-            {
-                // check if assembly is already loaded
-                Assembly assembly = assemblies.Where(item => item.Location == file.FullName).FirstOrDefault();
-                if (assembly == null)
-                {
-                    // load assembly from stream to prevent locking file ( as long as dependencies are in /bin they will load as well )
-                    assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(File.ReadAllBytes(file.FullName)));
-                    moduleassemblies.Add(assembly);
-                }
-            }
+            services.AddMvc()
+                .AddOqtaneApplicationParts()
+                .AddNewtonsoftJson();
 
-            // iterate through Oqtane theme assemblies in /bin ( filter is narrow to optimize loading process )
-            foreach (FileInfo file in folder.EnumerateFiles("*.Theme.*.dll"))
-            {
-                // check if assembly is already loaded
-                Assembly assembly = assemblies.Where(item => item.Location == file.FullName).FirstOrDefault();
-                if (assembly == null)
-                {
-                    // load assembly from stream to prevent locking file ( as long as dependencies are in /bin they will load as well )
-                    assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(File.ReadAllBytes(file.FullName)));
-                }
-            }
-
-            services.AddMvc().AddModuleAssemblies(moduleassemblies).AddNewtonsoftJson();
-
-            // dynamically register module services, contexts, and repository classes
-            assemblies = AppDomain.CurrentDomain.GetAssemblies()
-                .Where(item => item.FullName.StartsWith("Oqtane.") || item.FullName.Contains(".Module.")).ToArray();
-            foreach (Assembly assembly in assemblies)
-            {
-                Type[] implementationtypes = assembly.GetTypes()
-                    .Where(item => item.GetInterfaces().Contains(typeof(IService)))
-                    .ToArray();
-                foreach (Type implementationtype in implementationtypes)
-                {
-                    Type servicetype = Type.GetType(implementationtype.AssemblyQualifiedName.Replace(implementationtype.Name, "I" + implementationtype.Name));
-                    if (servicetype != null)
-                    {
-                        services.AddScoped(servicetype, implementationtype); // traditional service interface
-                    }
-                    else
-                    {
-                        services.AddScoped(implementationtype, implementationtype); // no interface defined for service
-                    }
-                }
-            }
-
-            // dynamically register hosted services
-            foreach (Assembly assembly in assemblies)
-            {
-                Type[] servicetypes = assembly.GetTypes()
-                    .Where(item => item.GetInterfaces().Contains(typeof(IHostedService)))
-                    .ToArray();
-                foreach (Type servicetype in servicetypes)
-                {
-                    if (servicetype.Name != "HostedServiceBase")
-                    {
-                        services.AddSingleton(typeof(IHostedService), servicetype);
-                    }
-                }
-            }
+            services.AddOqtaneServices();
+            services.AddOqtaneHostedServices();
 
             services.AddSwaggerGen(c =>
             {
@@ -386,75 +334,19 @@ namespace Oqtane.Server
             services.AddTransient<ILogManager, LogManager>();
             services.AddTransient<IJobRepository, JobRepository>();
             services.AddTransient<IJobLogRepository, JobLogRepository>();
+            services.AddTransient<INotificationRepository, NotificationRepository>();
+            services.AddTransient<IFolderRepository, FolderRepository>();
+            services.AddTransient<IFileRepository, FileRepository>();
 
-            // get list of loaded assemblies
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            string path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-            DirectoryInfo folder = new DirectoryInfo(path);
-            List<Assembly> moduleassemblies = new List<Assembly>();
+            services.AddOqtaneModules();
+            services.AddOqtaneThemes();
 
-            // iterate through Oqtane module assemblies in /bin ( filter is narrow to optimize loading process )
-            foreach (FileInfo file in folder.EnumerateFiles("*.Module.*.dll"))
-            {
-                // check if assembly is already loaded
-                Assembly assembly = assemblies.Where(item => item.Location == file.FullName).FirstOrDefault();
-                if (assembly == null)
-                {
-                    // load assembly from stream to prevent locking file ( as long as dependencies are in /bin they will load as well )
-                    assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(File.ReadAllBytes(file.FullName)));
-                }
-            }
+            services.AddMvc()
+                .AddOqtaneApplicationParts()
+                .AddNewtonsoftJson();
 
-            // iterate through Oqtane theme assemblies in /bin ( filter is narrow to optimize loading process )
-            foreach (FileInfo file in folder.EnumerateFiles("*.Theme.*.dll"))
-            {
-                // check if assembly is already loaded
-                Assembly assembly = assemblies.Where(item => item.Location == file.FullName).FirstOrDefault();
-                if (assembly == null)
-                {
-                    // load assembly from stream to prevent locking file ( as long as dependencies are in /bin they will load as well )
-                    assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(File.ReadAllBytes(file.FullName)));
-                }
-            }
-
-            services.AddMvc().AddModuleAssemblies(moduleassemblies).AddNewtonsoftJson();
-           
-            // dynamically register module services, contexts, and repository classes
-            assemblies = AppDomain.CurrentDomain.GetAssemblies()
-                .Where(item => item.FullName.StartsWith("Oqtane.") || item.FullName.Contains(".Module.")).ToArray();
-            foreach (Assembly assembly in assemblies)
-            {
-                Type[] implementationtypes = assembly.GetTypes()
-                    .Where(item => item.GetInterfaces().Contains(typeof(IService)))
-                    .ToArray();
-                foreach (Type implementationtype in implementationtypes)
-                {
-                    Type servicetype = Type.GetType(implementationtype.AssemblyQualifiedName.Replace(implementationtype.Name, "I" + implementationtype.Name));
-                    if (servicetype != null)
-                    {
-                        services.AddScoped(servicetype, implementationtype); // traditional service interface
-                    }
-                    else
-                    {
-                        services.AddScoped(implementationtype, implementationtype); // no interface defined for service
-                    }
-                }
-            }
-
-            // dynamically register hosted services
-            foreach (Assembly assembly in assemblies)
-            {
-                Type[] servicetypes = assembly.GetTypes()
-                    .Where(item => item.GetInterfaces().Contains(typeof(IHostedService)))
-                    .ToArray();
-                foreach (Type servicetype in servicetypes)
-                {
-                    if (servicetype.Name != "HostedServiceBase")
-                    {
-                        services.AddSingleton(typeof(IHostedService), servicetype);
-                    }
-                }
-            }
+            services.AddOqtaneServices();
+            services.AddOqtaneHostedServices();
 
             services.AddSwaggerGen(c =>
             {

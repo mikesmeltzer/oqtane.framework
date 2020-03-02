@@ -15,6 +15,8 @@ namespace Oqtane.Repository
         private readonly TenantDBContext db;
         private readonly IRoleRepository RoleRepository;
         private readonly IProfileRepository ProfileRepository;
+        private readonly IFolderRepository FolderRepository;
+        private readonly IFileRepository FileRepository;
         private readonly IPageRepository PageRepository;
         private readonly IModuleRepository ModuleRepository;
         private readonly IPageModuleRepository PageModuleRepository;
@@ -22,11 +24,13 @@ namespace Oqtane.Repository
         private readonly IServiceProvider ServiceProvider;
         private readonly List<PageTemplate> SiteTemplate;
 
-        public SiteRepository(TenantDBContext context, IRoleRepository RoleRepository, IProfileRepository ProfileRepository, IPageRepository PageRepository, IModuleRepository ModuleRepository, IPageModuleRepository PageModuleRepository, IModuleDefinitionRepository ModuleDefinitionRepository, IServiceProvider ServiceProvider)
+        public SiteRepository(TenantDBContext context, IRoleRepository RoleRepository, IProfileRepository ProfileRepository, IFolderRepository FolderRepository, IFileRepository FileRepository, IPageRepository PageRepository, IModuleRepository ModuleRepository, IPageModuleRepository PageModuleRepository, IModuleDefinitionRepository ModuleDefinitionRepository, IServiceProvider ServiceProvider)
         {
             db = context;
             this.RoleRepository = RoleRepository;
             this.ProfileRepository = ProfileRepository;
+            this.FolderRepository = FolderRepository;
+            this.FileRepository = FileRepository;
             this.PageRepository = PageRepository;
             this.ModuleRepository = ModuleRepository;
             this.PageModuleRepository = PageModuleRepository;
@@ -40,17 +44,23 @@ namespace Oqtane.Repository
                     Content = "<p><a href=\"https://www.oqtane.org\" target=\"_new\">Oqtane</a> is an open source <b>modular application framework</b> built from the ground up using modern .NET Core technology. It leverages the revolutionary new Blazor component model to create a <b>fully dynamic</b> web development experience which can be executed on a client or server. Whether you are looking for a platform to <b>accelerate your web development</b> efforts, or simply interested in exploring the anatomy of a large-scale Blazor application, Oqtane provides a solid foundation based on proven enterprise architectural principles.</p>" +
                     "<p align=\"center\"><a href=\"https://www.oqtane.org\" target=\"_new\"><img src=\"oqtane.png\"></a><br /><br /><a class=\"btn btn-primary\" href=\"https://www.oqtane.org/Community\" target=\"_new\">Join Our Community</a>&nbsp;&nbsp;<a class=\"btn btn-primary\" href=\"https://github.com/oqtane/oqtane.framework\" target=\"_new\">Clone Our Repo</a><br /><br /></p>" +
                     "<p><a href=\"https://dotnet.microsoft.com/apps/aspnet/web-apps/blazor\" target=\"_new\">Blazor</a> is a single-page app framework that lets you build interactive web applications using C# instead of JavaScript. Client-side Blazor relies on WebAssembly, an open web standard that does not require plugins or code transpilation in order to run natively in a web browser. Server-side Blazor uses SignalR to host your application on a web server and provide a responsive and robust debugging experience. Blazor applications works in all modern web browsers, including mobile browsers.</p>" +
-                    "<p>Blazor is a feature of <a href=\"https://dotnet.microsoft.com/apps/aspnet\" target=\"_new\">ASP.NET Core 3.0</a>, the popular cross platform web development framework from Microsoft that extends the <a href=\"https://dotnet.microsoft.com/learn/dotnet/what-is-dotnet\" target=\"_new\" >.NET developer platform</a> with tools and libraries for building web apps.</p>"
+                    "<p>Blazor is a feature of <a href=\"https://dotnet.microsoft.com/apps/aspnet\" target=\"_new\">ASP.NET Core 3</a>, the popular cross platform web development framework from Microsoft that extends the <a href=\"https://dotnet.microsoft.com/learn/dotnet/what-is-dotnet\" target=\"_new\" >.NET developer platform</a> with tools and libraries for building web apps.</p>"
                 },
                 new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.HtmlText, Oqtane.Client", Title = "MIT License", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]",  
-                    Content = "<p>Copyright (c) 2019 .NET Foundation</p>" +
+                    Content = "<p>Copyright (c) 2019-2020 .NET Foundation</p>" +
                     "<p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>" +
                     "<p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>" +
                     "<p>THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>"
                 }
             }
             }); 
-            SiteTemplate.Add(new PageTemplate { Name = "My Page", Parent = "", Path = "portal", Icon = "target", IsNavigation = true, IsPersonalizable = true, EditMode = false, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
+            SiteTemplate.Add(new PageTemplate { Name = "Private", Parent = "", Path = "private", Icon = "lock-locked", IsNavigation = true, IsPersonalizable = false, EditMode = false, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Registered Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
+                new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.HtmlText, Oqtane.Client", Title = "Secure Content", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Registered Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]",  
+                    Content = "<p>Oqtane allows you to control access to your content using security roles. This page is only visible to Registered Users of the site.</p>"
+                }
+            }
+            }); 
+            SiteTemplate.Add(new PageTemplate { Name = "My Page", Parent = "", Path = "mypage", Icon = "target", IsNavigation = true, IsPersonalizable = true, EditMode = false, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
                 new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.HtmlText, Oqtane.Client", Title = "My Page", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]",  
                     Content = "<p>Oqtane offers native support for user personalized pages. If a page is identified as personalizable by the site administrator in the page settings, when an authenticated user visits the page they will see an edit button at the top right corner of the page next to their username. When they click this button the sytem will create a new version of the page and allow them to edit the page content.</p>"
                 }
@@ -61,6 +71,9 @@ namespace Oqtane.Repository
             }});
             SiteTemplate.Add(new PageTemplate { Name = "Site Management", Parent = "Admin", Path = "admin/sites", Icon = "globe", IsNavigation = false, IsPersonalizable = false, EditMode = true, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
                 new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.Admin.Sites, Oqtane.Client", Title = "Site Management", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", Content = "" }
+            }});
+            SiteTemplate.Add(new PageTemplate { Name = "Site Settings", Parent = "Admin", Path = "admin/site", Icon = "home", IsNavigation = false, IsPersonalizable = false, EditMode = true, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
+                new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.Admin.Site, Oqtane.Client", Title = "Site Settings", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", Content = "" }
             }});
             SiteTemplate.Add(new PageTemplate { Name = "Page Management", Parent = "Admin", Path = "admin/pages", Icon = "layers", IsNavigation = false, IsPersonalizable = false, EditMode = true, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
                 new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.Admin.Pages, Oqtane.Client", Title = "Page Management", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", Content = "" }
@@ -104,6 +117,9 @@ namespace Oqtane.Repository
             SiteTemplate.Add(new PageTemplate { Name = "Register", Parent = "", Path = "register", Icon = "person", IsNavigation = false, IsPersonalizable = false, EditMode = false, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
                 new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.Admin.Register, Oqtane.Client", Title = "User Registration", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", Content = "" }
             }});
+            SiteTemplate.Add(new PageTemplate { Name = "Reset", Parent = "", Path = "reset", Icon = "person", IsNavigation = false, IsPersonalizable = false, EditMode = false, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
+                new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.Admin.Reset, Oqtane.Client", Title = "Password Reset", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", Content = "" }
+            }});
             SiteTemplate.Add(new PageTemplate { Name = "Profile", Parent = "", Path = "profile", Icon = "person", IsNavigation = false, IsPersonalizable = false, EditMode = false, PagePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", PageTemplateModules = new List<PageTemplateModule> {
                 new PageTemplateModule { ModuleDefinitionName = "Oqtane.Modules.Admin.UserProfile, Oqtane.Client", Title = "User Profile", Pane = "Content", ModulePermissions = "[{\"PermissionName\":\"View\",\"Permissions\":\"All Users;Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]", Content = "" }
             }});
@@ -135,10 +151,13 @@ namespace Oqtane.Repository
         }
 
         public void DeleteSite(int siteId)
-        {
-            Site site = db.Site.Find(siteId);
-            db.Site.Remove(site);
-            db.SaveChanges();
+        {       
+            if (db.Site.Count() > 1)
+            {
+                var site = db.Site.Find(siteId);
+                db.Site.Remove(site);
+                db.SaveChanges();
+            }
         }
 
         private void CreateSite(Site site)
@@ -164,6 +183,15 @@ namespace Oqtane.Repository
             ProfileRepository.AddProfile(new Profile { SiteId = site.SiteId, Name = "Country", Title = "Country", Description = "Country", Category = "Address", ViewOrder = 6, MaxLength = 50, DefaultValue = "", IsRequired = false, IsPrivate = false });
             ProfileRepository.AddProfile(new Profile { SiteId = site.SiteId, Name = "PostalCode", Title = "Postal Code", Description = "Postal Code Or Zip Code", Category = "Address", ViewOrder = 7, MaxLength = 50, DefaultValue = "", IsRequired = false, IsPrivate = false });
             ProfileRepository.AddProfile(new Profile { SiteId = site.SiteId, Name = "Phone", Title = "Phone Number", Description = "Phone Number", Category = "Contact", ViewOrder = 8, MaxLength = 50, DefaultValue = "", IsRequired = false, IsPrivate = false });
+
+            Folder folder = FolderRepository.AddFolder(new Folder { SiteId = site.SiteId, ParentId = null, Name = "Root", Path = "", Order = 1, IsSystem = true, Permissions = "[{\"PermissionName\":\"Browse\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"View\",\"Permissions\":\"All Users\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]" });
+            FolderRepository.AddFolder(new Folder { SiteId = site.SiteId, ParentId = folder.FolderId, Name = "Users", Path = "Users\\", Order = 1, IsSystem = true, Permissions = "[{\"PermissionName\":\"Browse\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"View\",\"Permissions\":\"Administrators\"},{\"PermissionName\":\"Edit\",\"Permissions\":\"Administrators\"}]" });
+            if (site.Name == "Default Site")
+            {
+                File file = FileRepository.AddFile(new File { FolderId = folder.FolderId, Name = "logo.png", Extension = "png", Size = 8192, ImageHeight = 80, ImageWidth = 250 });
+                site.LogoFileId = file.FileId;
+                UpdateSite(site);
+            }
 
             List<ModuleDefinition> moduledefinitions = ModuleDefinitionRepository.GetModuleDefinitions(site.SiteId).ToList();
             foreach (PageTemplate pagetemplate in SiteTemplate)
