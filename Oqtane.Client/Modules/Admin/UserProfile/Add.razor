@@ -1,7 +1,7 @@
 ﻿@namespace Oqtane.Modules.Admin.UserProfile
 @inherits ModuleBase
 @inject NavigationManager NavigationManager
-@inject IUserRoleService UserRoleService
+@inject IUserService UserService
 @inject INotificationService NotificationService
 
 @if (PageState.User != null)
@@ -9,35 +9,26 @@
     <table class="table table-borderless">
         <tr>
             <td>
-                <label for="Name" class="control-label">To: </label>
+                <Label For="to" HelpText="Enter the username you wish to send a message to">To: </Label>
             </td>
             <td>
-                <select class="form-control"  @bind="@userid">
-                    <option value="-1">&lt;Select User&gt;</option>
-                    @if (userroles != null)
-                    {
-                        foreach (UserRole userrole in userroles)
-                        {
-                            <option value="@userrole.UserId">@userrole.User.DisplayName</option>
-                        }
-                    }
-                </select>
+                <input id="to" class="form-control" @bind="@username" />
             </td>
         </tr>
         <tr>
             <td>
-                <label for="Name" class="control-label">Subject: </label>
+                <Label For="subject" HelpText="Enter the subject of the message">Subject: </Label>
             </td>
             <td>
-                <input class="form-control" @bind="@subject" />
+                <input id="subject" class="form-control" @bind="@subject" />
             </td>
         </tr>
         <tr>
             <td>
-                <label for="Name" class="control-label">Message: </label>
+                <Label For="message" HelpText="Enter the message">Message: </Label>
             </td>
             <td>
-                <textarea class="form-control" @bind="@body" rows="5" />
+                <textarea id="message" class="form-control" @bind="@body" rows="5" />
             </td>
         </tr>
     </table>
@@ -46,49 +37,44 @@
 }
 
 @code {
-    public override SecurityAccessLevel SecurityAccessLevel { get { return SecurityAccessLevel.View; } }
-    public override string Title { get { return "Send Notification"; } }
+    private string username = "";
+    private string subject = "";
+    private string body = "";
 
-    List<UserRole> userroles;
-    string userid = "-1";
-    string subject = "";
-    string body = "";
+    public override SecurityAccessLevel SecurityAccessLevel => SecurityAccessLevel.View;
 
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            userroles = await UserRoleService.GetUserRolesAsync(PageState.Site.SiteId);
-            userroles = userroles.Where(item => item.Role.Name == Constants.RegisteredRole || item.Role.Name == Constants.HostRole)
-                .OrderBy(item => item.User.DisplayName).ToList();
-        }
-        catch (Exception ex)
-        {
-            await logger.LogError(ex, "Error Loading Users {Error}", ex.Message);
-            AddModuleMessage("Error Loading Users", MessageType.Error);
-        }
-    }
+    public override string Title => "Send Notification";
 
     private async Task Send()
     {
-        Notification notification = new Notification();
+        var notification = new Notification();
         try
         {
-            notification.SiteId = PageState.Site.SiteId;
-            notification.FromUserId = PageState.User.UserId;
-            notification.ToUserId = int.Parse(userid);
-            notification.ToEmail = "";
-            notification.Subject = subject;
-            notification.Body = body;
-            notification.ParentId = null;
-            notification.CreatedOn = DateTime.Now;
-            notification.IsDelivered = false;
-            notification.DeliveredOn = null;
-
-            notification = await NotificationService.AddNotificationAsync(notification);
-
-            await logger.LogInformation("Notification Created {Notification}", notification);
-            NavigationManager.NavigateTo(NavigateUrl());
+            var user = await UserService.GetUserAsync(username, PageState.Site.SiteId);
+            if (user != null)
+            {
+                notification.SiteId = PageState.Site.SiteId;
+                notification.FromUserId = PageState.User.UserId;
+                notification.FromDisplayName = PageState.User.DisplayName;
+                notification.FromEmail = PageState.User.Email;
+                notification.ToUserId = user.UserId;
+                notification.ToDisplayName = user.DisplayName;
+                notification.ToEmail = user.Email;
+                notification.Subject = subject;
+                notification.Body = body;
+                notification.ParentId = null;
+                notification.CreatedOn = DateTime.UtcNow;
+                notification.IsDelivered = false;
+                notification.DeliveredOn = null;
+                notification.SendOn = DateTime.UtcNow;
+                notification = await NotificationService.AddNotificationAsync(notification);
+                await logger.LogInformation("Notification Created {Notification}", notification);
+                NavigationManager.NavigateTo(NavigateUrl());
+            }
+            else
+            {
+                AddModuleMessage("User Does Not Exist. Please Verify That The Username Provided Is Correct.", MessageType.Warning);
+            }
         }
         catch (Exception ex)
         {

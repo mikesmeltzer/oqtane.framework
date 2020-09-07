@@ -2,23 +2,27 @@
 using Oqtane.Shared;
 using Oqtane.Models;
 using System.Threading.Tasks;
-using System.Linq;
 using Oqtane.Services;
 using System;
+using Oqtane.Enums;
+using Oqtane.UI;
+using System.Collections.Generic;
+using Microsoft.JSInterop;
+using System.Linq;
 
 namespace Oqtane.Modules
 {
-    public class ModuleBase : ComponentBase, IModuleControl
+    public abstract class ModuleBase : ComponentBase, IModuleControl
     {
-        public Logger logger { get; set; }
+        private Logger _logger;
 
-        public ModuleBase()
-        {
-            this.logger = new Logger(this);
-        }
+        protected Logger logger => _logger ?? (_logger = new Logger(this));
 
         [Inject]
         protected ILogService LoggingService { get; set; }
+
+        [Inject]
+        protected IJSRuntime JSRuntime { get; set; }
 
         [CascadingParameter]
         protected PageState PageState { get; set; }
@@ -26,9 +30,8 @@ namespace Oqtane.Modules
         [CascadingParameter]
         protected Module ModuleState { get; set; }
 
-        [CascadingParameter] 
+        [CascadingParameter]
         protected ModuleInstance ModuleInstance { get; set; }
-
 
         // optional interface properties
         public virtual SecurityAccessLevel SecurityAccessLevel { get { return SecurityAccessLevel.View; } set { } } // default security
@@ -39,11 +42,32 @@ namespace Oqtane.Modules
 
         public virtual bool UseAdminContainer { get { return true; } }
 
+        public virtual List<Resource> Resources { get; set; }
+
+        // base lifecycle method for handling JSInterop script registration
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+            {
+                if (Resources != null && Resources.Exists(item => item.ResourceType == ResourceType.Script))
+                {
+                    var scripts = new List<object>();
+                    foreach (Resource resource in Resources.Where(item => item.ResourceType == ResourceType.Script))
+                    {
+                        scripts.Add(new { href = resource.Url, bundle = resource.Bundle ?? "", integrity = resource.Integrity ?? "", crossorigin = resource.CrossOrigin ?? "" });
+                    }
+                    var interop = new Interop(JSRuntime);
+                    await interop.IncludeScripts(scripts.ToArray());
+                }
+            }
+        }
+
         // path method
 
         public string ModulePath()
         {
-            return "Modules/" + this.GetType().Namespace + "/";
+            return "Modules/" + GetType().Namespace + "/";
         }
 
         // url methods
@@ -52,29 +76,14 @@ namespace Oqtane.Modules
             return NavigateUrl(PageState.Page.Path);
         }
 
-        public string NavigateUrl(Reload reload)
-        {
-            return NavigateUrl(PageState.Page.Path, reload);
-        }
-
         public string NavigateUrl(string path)
         {
-            return NavigateUrl(path, "", Reload.None);
-        }
-
-        public string NavigateUrl(string path, Reload reload)
-        {
-            return NavigateUrl(path, "", reload);
+            return NavigateUrl(path, "");
         }
 
         public string NavigateUrl(string path, string parameters)
         {
-            return Utilities.NavigateUrl(PageState.Alias.Path, path, parameters, Reload.None);
-        }
-
-        public string NavigateUrl(string path, string parameters, Reload reload)
-        {
-            return Utilities.NavigateUrl(PageState.Alias.Path, path, parameters, reload);
+            return Utilities.NavigateUrl(PageState.Alias.Path, path, parameters);
         }
 
         public string EditUrl(string action)
@@ -87,14 +96,14 @@ namespace Oqtane.Modules
             return EditUrl(ModuleState.ModuleId, action, parameters);
         }
 
-        public string EditUrl(int moduleid, string action)
+        public string EditUrl(int moduleId, string action)
         {
-            return EditUrl(moduleid, action, "");
+            return EditUrl(moduleId, action, "");
         }
 
-        public string EditUrl(int moduleid, string action, string parameters)
+        public string EditUrl(int moduleId, string action, string parameters)
         {
-            return EditUrl(PageState.Page.Path, moduleid, action, parameters);
+            return EditUrl(PageState.Page.Path, moduleId, action, parameters);
         }
 
         public string EditUrl(string path, int moduleid, string action, string parameters)
@@ -104,13 +113,55 @@ namespace Oqtane.Modules
 
         public string ContentUrl(int fileid)
         {
-            string apiurl = PageState.Uri.Scheme + "://" + PageState.Alias.Name + "/";
-            if (PageState.Alias.Path == "")
+            return Utilities.ContentUrl(PageState.Alias, fileid);
+        }
+
+        public virtual Dictionary<string, string> GetUrlParameters(string parametersTemplate = "")
+        {
+            var urlParameters = new Dictionary<string, string>();
+            string[] templateSegments;
+            var parameters = PageState.UrlParameters.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var parameterId = 0;
+
+            if (string.IsNullOrEmpty(parametersTemplate))
             {
-                apiurl += "~/";
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    urlParameters.TryAdd("parameter" + i, parameters[i]);
+                }
             }
-            apiurl += "api/File/Download/" + fileid.ToString();
-            return apiurl;
+            else
+            {
+                templateSegments = parametersTemplate.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+                if (parameters.Length == templateSegments.Length)
+                {
+                    for (int i = 0; i < parameters.Length; i++)
+                    {
+                        if (parameters.Length > i)
+                        {
+                            if (templateSegments[i] == parameters[i])
+                            {
+                                urlParameters.TryAdd("parameter" + parameterId, parameters[i]);
+                                parameterId++;
+                            }
+                            else if (templateSegments[i].StartsWith("{") && templateSegments[i].EndsWith("}"))
+                            {
+                                var key = templateSegments[i].Replace("{", "");
+                                key = key.Replace("}", "");
+                                urlParameters.TryAdd(key, parameters[i]);
+                            }
+                            else
+                            {
+                                i = parameters.Length;
+                                urlParameters.Clear();
+                            }
+                        }
+                    }
+                }
+            }
+
+            return urlParameters;
         }
 
         // user feedback methods
@@ -130,107 +181,114 @@ namespace Oqtane.Modules
         }
 
         // logging methods
-        public async Task Log(LogLevel level, Exception exception, string message, params object[] args)
+        public async Task Log(Alias alias, LogLevel level, string function, Exception exception, string message, params object[] args)
         {
-            int PageId = PageState.Page.PageId;
-            int ModuleId = ModuleState.ModuleId;
-            int? UserId = null;
+            int pageId = ModuleState.PageId;
+            int moduleId = ModuleState.ModuleId;
+            int? userId = null;
             if (PageState.User != null)
             {
-                UserId = PageState.User.UserId;
+                userId = PageState.User.UserId;
             }
-            string category = this.GetType().AssemblyQualifiedName;
+            string category = GetType().AssemblyQualifiedName;
             string feature = Utilities.GetTypeNameLastSegment(category, 1);
-            LogFunction function;
-            switch (PageState.Action)
+            LogFunction logFunction;
+            if (string.IsNullOrEmpty(function))
             {
-                case "Add":
-                    function = LogFunction.Create;
+                function = PageState.Action;
+            }
+            switch (function.ToLower())
+            {
+                case "add":
+                    logFunction = LogFunction.Create;
                     break;
-                case "Edit":
-                    function = LogFunction.Update;
+
+                case "edit":
+                    logFunction = LogFunction.Update;
                     break;
-                case "Delete":
-                    function = LogFunction.Delete;
+
+                case "delete":
+                    logFunction = LogFunction.Delete;
                     break;
+
                 default:
-                    function = LogFunction.Read;
+                    logFunction = LogFunction.Read;
                     break;
             }
             if (feature == "Login")
             {
-                function = LogFunction.Security;
+                logFunction = LogFunction.Security;
             }
-            await LoggingService.Log(PageId, ModuleId, UserId, category, feature, function, level, exception, message, args);
+            await LoggingService.Log(alias, pageId, moduleId, userId, category, feature, logFunction, level, exception, message, args);
         }
 
         public class Logger
         {
-            private ModuleBase modulebase;
+            private readonly ModuleBase _moduleBase;
 
-            public Logger(ModuleBase modulebase)
+            public Logger(ModuleBase moduleBase)
             {
-                this.modulebase = modulebase;
+                _moduleBase = moduleBase;
             }
 
             public async Task LogTrace(string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Trace, null, message, args);
+                await _moduleBase.Log(null, LogLevel.Trace, "", null, message, args);
             }
 
             public async Task LogTrace(Exception exception, string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Trace, exception, message, args);
+                await _moduleBase.Log(null, LogLevel.Trace, "", exception, message, args);
             }
 
             public async Task LogDebug(string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Debug, null, message, args);
+                await _moduleBase.Log(null, LogLevel.Debug, "", null, message, args);
             }
 
             public async Task LogDebug(Exception exception, string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Debug, exception, message, args);
+                await _moduleBase.Log(null, LogLevel.Debug, "", exception, message, args);
             }
 
             public async Task LogInformation(string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Information, null, message, args);
+                await _moduleBase.Log(null, LogLevel.Information, "", null, message, args);
             }
 
             public async Task LogInformation(Exception exception, string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Information, exception, message, args);
+                await _moduleBase.Log(null, LogLevel.Information, "", exception, message, args);
             }
 
             public async Task LogWarning(string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Warning, null, message, args);
+                await _moduleBase.Log(null, LogLevel.Warning, "", null, message, args);
             }
 
             public async Task LogWarning(Exception exception, string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Warning, exception, message, args);
+                await _moduleBase.Log(null, LogLevel.Warning, "", exception, message, args);
             }
 
             public async Task LogError(string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Error, null, message, args);
+                await _moduleBase.Log(null, LogLevel.Error, "", null, message, args);
             }
 
             public async Task LogError(Exception exception, string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Error, exception, message, args);
+                await _moduleBase.Log(null, LogLevel.Error, "", exception, message, args);
             }
 
             public async Task LogCritical(string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Critical, null, message, args);
+                await _moduleBase.Log(null, LogLevel.Critical, "", null, message, args);
             }
 
             public async Task LogCritical(Exception exception, string message, params object[] args)
             {
-                await modulebase.Log(LogLevel.Critical, exception, message, args);
+                await _moduleBase.Log(null, LogLevel.Critical, "", exception, message, args);
             }
         }
     }

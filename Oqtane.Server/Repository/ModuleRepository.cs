@@ -1,80 +1,80 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Oqtane.Models;
-using System.Reflection;
-using System;
-using Oqtane.Modules;
-using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Oqtane.Models;
+using Oqtane.Modules;
+using Module = Oqtane.Models.Module;
 
 namespace Oqtane.Repository
 {
     public class ModuleRepository : IModuleRepository
     {
-        private TenantDBContext db;
-        private readonly IPermissionRepository Permissions;
-        private readonly IModuleDefinitionRepository ModuleDefinitions;
-        private readonly IServiceProvider ServiceProvider;
+        private TenantDBContext _db;
+        private readonly IPermissionRepository _permissions;
+        private readonly IModuleDefinitionRepository _moduleDefinitions;
+        private readonly IServiceProvider _serviceProvider;
 
-        public ModuleRepository(TenantDBContext context, IPermissionRepository Permissions, IModuleDefinitionRepository ModuleDefinitions, IServiceProvider ServiceProvider)
+        public ModuleRepository(TenantDBContext context, IPermissionRepository permissions, IModuleDefinitionRepository moduleDefinitions, IServiceProvider serviceProvider)
         {
-            db = context;
-            this.Permissions = Permissions;
-            this.ModuleDefinitions = ModuleDefinitions;
-            this.ServiceProvider = ServiceProvider;
+            _db = context;
+            _permissions = permissions;
+            _moduleDefinitions = moduleDefinitions;
+            _serviceProvider = serviceProvider;
         }
 
-        public IEnumerable<Models.Module> GetModules(int SiteId)
+        public IEnumerable<Module> GetModules(int siteId)
         {
-            return db.Module.Where(item => item.SiteId == SiteId).ToList();
+            return _db.Module.Where(item => item.SiteId == siteId).ToList();
         }
 
-        public Models.Module AddModule(Models.Module Module)
+        public Module AddModule(Module module)
         {
-            db.Module.Add(Module);
-            db.SaveChanges();
-            Permissions.UpdatePermissions(Module.SiteId, "Module", Module.ModuleId, Module.Permissions);
-            return Module;
-        }
-
-        public Models.Module UpdateModule(Models.Module Module)
-        {
-            db.Entry(Module).State = EntityState.Modified;
-            db.SaveChanges();
-            Permissions.UpdatePermissions(Module.SiteId, "Module", Module.ModuleId, Module.Permissions);
-            return Module;
-        }
-
-        public Models.Module GetModule(int ModuleId)
-        {
-            Models.Module module = db.Module.Find(ModuleId);
-            if (module != null)
-            {
-                List<Permission> permissions = Permissions.GetPermissions("Module", module.ModuleId).ToList();
-                module.Permissions = Permissions.EncodePermissions(module.ModuleId, permissions);
-            }
+            _db.Module.Add(module);
+            _db.SaveChanges();
+            _permissions.UpdatePermissions(module.SiteId, "Module", module.ModuleId, module.Permissions);
             return module;
         }
 
-        public void DeleteModule(int ModuleId)
+        public Module UpdateModule(Module module)
         {
-            Models.Module Module = db.Module.Find(ModuleId);
-            Permissions.DeletePermissions(Module.SiteId, "Module", ModuleId);
-            db.Module.Remove(Module);
-            db.SaveChanges();
+            _db.Entry(module).State = EntityState.Modified;
+            _db.SaveChanges();
+            _permissions.UpdatePermissions(module.SiteId, "Module", module.ModuleId, module.Permissions);
+            return module;
         }
 
-        public string ExportModule(int ModuleId)
+        public Module GetModule(int moduleId)
+        {
+            Module module = _db.Module.Find(moduleId);
+            if (module != null)
+            {
+                module.Permissions = _permissions.GetPermissionString("Module", module.ModuleId);
+            }
+
+            return module;
+        }
+
+        public void DeleteModule(int moduleId)
+        {
+            Module module = _db.Module.Find(moduleId);
+            _permissions.DeletePermissions(module.SiteId, "Module", moduleId);
+            _db.Module.Remove(module);
+            _db.SaveChanges();
+        }
+
+        public string ExportModule(int moduleId)
         {
             string content = "";
             try
             {
-                Models.Module module = GetModule(ModuleId);
+                Module module = GetModule(moduleId);
                 if (module != null)
                 {
-                    List<ModuleDefinition> moduledefinitions = ModuleDefinitions.GetModuleDefinitions(module.SiteId).ToList();
-                    ModuleDefinition moduledefinition = moduledefinitions.Where(item => item.ModuleDefinitionName == module.ModuleDefinitionName).FirstOrDefault();
+                    List<ModuleDefinition> moduledefinitions = _moduleDefinitions.GetModuleDefinitions(module.SiteId).ToList();
+                    ModuleDefinition moduledefinition = moduledefinitions.FirstOrDefault(item => item.ModuleDefinitionName == module.ModuleDefinitionName);
                     if (moduledefinition != null)
                     {
                         ModuleContent modulecontent = new ModuleContent();
@@ -82,23 +82,23 @@ namespace Oqtane.Repository
                         modulecontent.Version = moduledefinition.Version;
                         modulecontent.Content = "";
 
-                        if (moduledefinition.ServerAssemblyName != "")
+                        if (moduledefinition.ServerManagerType != "")
                         {
-                            Assembly assembly = AppDomain.CurrentDomain.GetAssemblies()
-                                .Where(item => item.FullName.StartsWith(moduledefinition.ServerAssemblyName)).FirstOrDefault();
-                            if (assembly != null)
+                            Type moduletype = Type.GetType(moduledefinition.ServerManagerType);
+                            if (moduletype != null && moduletype.GetInterface("IPortable") != null)
                             {
-                                Type moduletype = assembly.GetTypes()
-                                    .Where(item => item.Namespace != null)
-                                    .Where(item => item.Namespace.StartsWith(moduledefinition.ModuleDefinitionName.Substring(0, moduledefinition.ModuleDefinitionName.IndexOf(","))))
-                                    .Where(item => item.GetInterfaces().Contains(typeof(IPortable))).FirstOrDefault();
-                                if (moduletype != null)
+                                try
                                 {
-                                    var moduleobject = ActivatorUtilities.CreateInstance(ServiceProvider, moduletype);
+                                    var moduleobject = ActivatorUtilities.CreateInstance(_serviceProvider, moduletype);
                                     modulecontent.Content = ((IPortable)moduleobject).ExportModule(module);
+                                }
+                                catch
+                                {
+                                    // error in IPortable implementation
                                 }
                             }
                         }
+
                         content = JsonSerializer.Serialize(modulecontent);
                     }
                 }
@@ -107,39 +107,39 @@ namespace Oqtane.Repository
             {
                 // error occurred during export
             }
+
             return content;
         }
 
-        public bool ImportModule(int ModuleId, string Content)
+        public bool ImportModule(int moduleId, string content)
         {
             bool success = false;
             try
             {
-                Models.Module module = GetModule(ModuleId);
+                Module module = GetModule(moduleId);
                 if (module != null)
                 {
-                    List<ModuleDefinition> moduledefinitions = ModuleDefinitions.GetModuleDefinitions(module.SiteId).ToList();
+                    List<ModuleDefinition> moduledefinitions = _moduleDefinitions.GetModuleDefinitions(module.SiteId).ToList();
                     ModuleDefinition moduledefinition = moduledefinitions.Where(item => item.ModuleDefinitionName == module.ModuleDefinitionName).FirstOrDefault();
                     if (moduledefinition != null)
                     {
-                        ModuleContent modulecontent = JsonSerializer.Deserialize<ModuleContent>(Content);
+                        ModuleContent modulecontent = JsonSerializer.Deserialize<ModuleContent>(content.Replace("\n", ""));
                         if (modulecontent.ModuleDefinitionName == moduledefinition.ModuleDefinitionName)
                         {
-                            if (moduledefinition.ServerAssemblyName != "")
+                            if (moduledefinition.ServerManagerType != "")
                             {
-                                Assembly assembly = AppDomain.CurrentDomain.GetAssemblies()
-                                    .Where(item => item.FullName.StartsWith(moduledefinition.ServerAssemblyName)).FirstOrDefault();
-                                if (assembly != null)
+                                Type moduletype = Type.GetType(moduledefinition.ServerManagerType);
+                                if (moduletype != null && moduletype.GetInterface("IPortable") != null)
                                 {
-                                    Type moduletype = assembly.GetTypes()
-                                        .Where(item => item.Namespace != null)
-                                        .Where(item => item.Namespace.StartsWith(moduledefinition.ModuleDefinitionName.Substring(0, moduledefinition.ModuleDefinitionName.IndexOf(","))))
-                                        .Where(item => item.GetInterfaces().Contains(typeof(IPortable))).FirstOrDefault();
-                                    if (moduletype != null)
+                                    try
                                     {
-                                        var moduleobject = ActivatorUtilities.CreateInstance(ServiceProvider, moduletype);
+                                        var moduleobject = ActivatorUtilities.CreateInstance(_serviceProvider, moduletype);
                                         ((IPortable)moduleobject).ImportModule(module, modulecontent.Content, modulecontent.Version);
                                         success = true;
+                                    }
+                                    catch 
+                                    {
+                                        // error in IPortable implementation
                                     }
                                 }
                             }
@@ -147,12 +147,13 @@ namespace Oqtane.Repository
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 // error occurred during import
+                string error = ex.Message;
             }
+
             return success;
         }
-
     }
 }

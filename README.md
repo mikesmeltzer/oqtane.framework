@@ -1,26 +1,57 @@
 # Oqtane Framework
-Oqtane is a Modular Application Framework for Blazor
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Foqtane%2Foqtane.framework%2Fmaster%2Fazuredeploy.json)
 
 ![Oqtane](https://github.com/oqtane/framework/blob/master/oqtane.png?raw=true "Oqtane")
 
-Oqtane uses Blazor, a new web framework for .NET Core that lets you build interactive web UIs using C# instead of JavaScript. Blazor apps are composed of reusable web UI components implemented using C#, HTML, and CSS. Both client and server code is written in C#, allowing you to share code and libraries.
+Oqtane is a Modular Application Framework. It leverages Blazor, an open source and cross-platform web UI framework for building single-page apps using .NET and C# instead of JavaScript. Blazor apps are composed of reusable web UI components implemented using C#, HTML, and CSS. Both client and server code is written in C#, allowing you to share code and libraries.
 
-**To get started with Oqtane:**
+Oqtane is being developed based on some fundamental principles which are outlined in the [Oqtane Philosophy](https://www.oqtane.org/Resources/Blog/PostId/538/oqtane-philosophy).
 
-   1.&nbsp;Install **[.NET Core 3.1 SDK](https://dotnet.microsoft.com/download/dotnet-core/3.1)**.
+Please note that this project is owned by the .NET Foundation and is governed by the **[.NET Foundation Contributor Covenant Code of Conduct](https://dotnetfoundation.org/code-of-conduct)**
+
+# Getting Started
+
+**Using the latest code:**
+
+- Install **[.NET Core 3.1 SDK (v3.1.300)](https://dotnet.microsoft.com/download/dotnet-core/thank-you/sdk-3.1.300-windows-x64-installer)**.
    
-   2.&nbsp;Install the latest edition of [Visual Studio 2019](https://visualstudio.com/vs/) (version 16.4 or higher) with the **ASP.NET and web development** workload. If you do not have a SQL Server installation available already and you wish to use LocalDB for development, you must also install the **.NET desktop development workload**.
+- Install the Preview edition of [Visual Studio 2019](https://visualstudio.microsoft.com/vs/preview/) (Community, Professional, and Enterprise Editions are all supported) with the **ASP.NET and web development** workload enabled. Oqtane works with all editions of Visual Studio from Community to Enterprise. If you do not have a SQL Server installation available already and you wish to use LocalDB for development, you must also install the **.NET desktop development workload**.  
 
-   3.&nbsp;Download or Clone the Oqtane source code to your local system. Open the **Oqtane.sln** solution file. If you want to develop using **server-side** Blazor (which includes a full debugging experience in Visual Studio) you should choose to Build the solution using the default Debug configuration. If you want to develop using **client-side** Blazor (WebAssembly) you should first choose the "Wasm" configuration option in the Visual Studio toolbar and then Build.
+- Download or Clone the Oqtane source code to your local system. Open the **Oqtane.sln** solution file and Build the solution. 
+
+**Using an official release:**
+
+- A detailed set of instructions for installing Oqtane on IIS is located here: [Installing Oqtane on IIS](https://www.oqtane.org/Resources/Blog/PostId/542/installing-oqtane-on-iis)
+- Instructions for upgrading Oqtane are located here: [Upgrading Oqtane](https://www.oqtane.org/Resources/Blog/PostId/543/upgrading-oqtane)
+
+**Additional Instructions**
+
+- If you have already installed a previous version of Oqtane and you wish to do a clean database install, simply reset the DefaultConnection value in the Oqtane.Server\appsettings.json file to "". This will trigger a re-install when you run the application which will execute the database installation scripts.
    
-   NOTE: If you have already installed a previous version of Oqtane and you wish to install a newer version, there is currently no upgrade path from one version to the next. The recommended upgrade approach is to get the latest code and build it, and then reset the DefaultConnection value to "" in the appsettings.json file in the Oqtane.server project. This will trigger a re-install when you run the application which will execute the latest database scripts.
+- If you want to submit pull requests make sure you install the [Github Extension For Visual Studio](https://visualstudio.github.com/). It is recommended you ignore any local changes you have made to the appsettings.json file before you submit a pull request. To automate this activity, open a command prompt and navigate to the /Oqtane.Server/ folder and enter the command "git update-index --skip-worktree appsettings.json" 
+
+**Video Series**
+
+- If you are getting started with Oqtane, a [series of videos](https://www.youtube.com/watch?v=JPfUZPlRRCE&list=PLYhXmd7yV0elLNLfQwZBUlM7ZSMYPTZ_f) are available which explain how to install the product, interact with the user interface, and develop custom modules.
 
 # Roadmap
 This project is a work in progress and the schedule for implementing enhancements is dependent upon the availability of community members who are willing/able to assist.
 
-V1 (MVP)
+V.Next ( still in the process of being prioritized )
+- [ ] Admin UI markup optimization
+- [ ] DB Migrations for framework installation/upgrade
+- [ ] Support for SQLite
+- [ ] Static Localization ( ie. labels, help text, etc.. )
+- [ ] Migrate to Code-Behind Pattern ( *.razor.cs )
+- [ ] Generic Repository Pattern
+- [ ] JwT token authentication ( possibly using IdentityServer )
+- [ ] Optional Encryption for Settings Values 
+
+V1.0.0 (MVP) - Released in conjunction with .NET Core 3.2 ( May 2020 )
 - [x] Multi-Tenant ( Shared Database & Isolated Database ) 
-- [x] Modular Architecture / Headless API
+- [x] Modular Architecture
+- [x] Headless API with Swagger Support
 - [x] Dynamic Page Compositing Model / Site & Page Management
 - [x] Authentication / User Management / Profile Management
 - [x] Authorization / Roles Management / Granular Permissions
@@ -33,26 +64,31 @@ V1 (MVP)
 - [x] Scheduled Jobs ( Background Processing )
 - [x] Notifications / Email Delivery
 - [x] Auto-Upgrade Framework
-
-V.Next
-- [ ] Optional Encryption of Settings Values ( ie. via an IsSecure flag )
-- [ ] Localization
-- [ ] Migrate to Code-Behind Pattern ( *.razor.cs )
-- [ ] Generic Repository Pattern
-- [ ] JwT token authentication
+- [x] Progressive Web Application Support
 
 # Background
 Oqtane was created by [Shaun Walker](https://www.linkedin.com/in/shaunbrucewalker/) and is inspired by the DotNetNuke web application framework. Initially created as a proof of concept, Oqtane is a native Blazor application written from the ground up using modern .NET Core technology. It is a modular application framework offering a fully dynamic page compositing model, multi-site support, designer friendly templates (skins), and extensibility via third party modules.
 
-# Release Announcement
+# Release Announcements
 
-[Announcing Oqtane... a Modular Application Framework for Blazor!](https://www.oqtane.org/Resources/Blog/PostId/520/announcing-oqtane-a-modular-application-framework-for-blazor)
+[Oqtane 1.0.1](https://www.oqtane.org/Resources/Blog/PostId/541/oqtane-builds-momentum-with-101-release)
+
+[Oqtane 1.0](https://www.oqtane.org/Resources/Blog/PostId/540/announcing-oqtane-10-a-modular-application-framework-for-blazor)
+
+[Oqtane POC](https://www.oqtane.org/Resources/Blog/PostId/520/announcing-oqtane-a-modular-application-framework-for-blazor)
+
+# Architecture
+
+The following diagram visualizes the client and server components in the Oqtane architecture.
+
+![Architecture](https://github.com/oqtane/framework/blob/master/screenshots/Architecture.png?raw=true "Oqtane Architecture")
+
 
 # Example Screenshots
 
 Install Wizard:
 
-![Installer](https://github.com/oqtane/framework/blob/master/installer.png?raw=true "Installer")
+![Installer](https://github.com/oqtane/framework/blob/master/screenshots/Installer.png?raw=true "Installer")
 
 Default view after installation:
 
@@ -78,6 +114,11 @@ Control panel for adding, editing, and deleting pages as well as adding new modu
 
 ![Manage Page](https://github.com/oqtane/framework/blob/master/screenshots/screenshot5.png?raw=true "Manage Page")
 
-Admin dashboard for accessing the variuous administrative features of the framework:
+Admin dashboard for accessing the various administrative features of the framework:
 
 ![Admin Dashboard](https://github.com/oqtane/framework/blob/master/screenshots/screenshot6.png?raw=true "Admin Dashboard")
+
+Responsive design mobile view:
+
+![Mobile View](https://github.com/oqtane/framework/blob/master/screenshots/screenshot7.png?raw=true "Mobile View")
+

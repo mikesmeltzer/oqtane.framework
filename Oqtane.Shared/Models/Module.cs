@@ -1,7 +1,5 @@
-﻿using Oqtane.Modules;
-using Oqtane.Shared;
+﻿using Oqtane.Shared;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Oqtane.Models
@@ -11,6 +9,7 @@ namespace Oqtane.Models
         public int ModuleId { get; set; }
         public int SiteId { get; set; }
         public string ModuleDefinitionName { get; set; }
+        public bool AllPages { get; set; }
 
         public string CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }

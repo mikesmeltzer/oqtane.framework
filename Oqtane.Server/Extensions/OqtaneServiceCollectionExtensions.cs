@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,75 +6,44 @@ using System.Runtime.Loader;
 using Microsoft.Extensions.Hosting;
 using Oqtane.Infrastructure;
 using Oqtane.Modules;
+using Oqtane.Services;
+using Oqtane.UI;
 
+// ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection
 {
     public static class OqtaneServiceCollectionExtensions
     {
-        private static readonly IList<Assembly> _oqtaneModuleAssemblies = new List<Assembly>();
-
-        private static Assembly[] Assemblies => AppDomain.CurrentDomain.GetAssemblies();
-
-        internal static IEnumerable<Assembly> GetOqtaneModuleAssemblies() => _oqtaneModuleAssemblies;
-
-        public static IServiceCollection AddOqtaneModules(this IServiceCollection services)
+        public static IServiceCollection AddOqtaneParts(this IServiceCollection services, Runtime runtime)
         {
-            if (services is null)
-            {
-                throw new ArgumentNullException(nameof(services));
-            }
-
-            LoadAssemblies("Module");
-
+            LoadAssemblies();
+            services.AddOqtaneServices(runtime);
             return services;
         }
 
-        public static IServiceCollection AddOqtaneThemes(this IServiceCollection services)
+        private static IServiceCollection AddOqtaneServices(this IServiceCollection services, Runtime runtime)
         {
             if (services is null)
             {
                 throw new ArgumentNullException(nameof(services));
             }
 
-            LoadAssemblies("Theme");
-
-            return services;
-        }
-
-        public static IServiceCollection AddOqtaneServices(this IServiceCollection services)
-        {
-            if (services is null)
-            {
-                throw new ArgumentNullException(nameof(services));
-            }
-
-            // dynamically register module services, contexts, and repository classes
-            var assemblies = Assemblies.
-                Where(item => item.FullName.StartsWith("Oqtane.") || item.FullName.Contains(".Module.")).ToArray();
+            var hostedServiceType = typeof(IHostedService);
+            var assemblies = AppDomain.CurrentDomain.GetOqtaneAssemblies();
             foreach (var assembly in assemblies)
             {
+                // dynamically register module services, contexts, and repository classes
                 var implementationTypes = assembly.GetInterfaces<IService>();
                 foreach (var implementationType in implementationTypes)
                 {
-                    var serviceType = Type.GetType(implementationType.AssemblyQualifiedName.Replace(implementationType.Name, $"I{implementationType.Name}"));
-                    services.AddScoped(serviceType ?? implementationType, implementationType);
+                    if (implementationType.AssemblyQualifiedName != null)
+                    {
+                        var serviceType = Type.GetType(implementationType.AssemblyQualifiedName.Replace(implementationType.Name, $"I{implementationType.Name}"));
+                        services.AddScoped(serviceType ?? implementationType, implementationType);
+                    }
                 }
-            }
 
-            return services;
-        }
-
-        public static IServiceCollection AddOqtaneHostedServices(this IServiceCollection services)
-        {
-            if (services is null)
-            {
-                throw new ArgumentNullException(nameof(services));
-            }
-
-            // dynamically register hosted services
-            var hostedServiceType = typeof(IHostedService);
-            foreach (var assembly in Assemblies)
-            {
+                // dynamically register hosted services
                 var serviceTypes = assembly.GetTypes(hostedServiceType);
                 foreach (var serviceType in serviceTypes)
                 {
@@ -84,32 +52,85 @@ namespace Microsoft.Extensions.DependencyInjection
                         services.AddSingleton(hostedServiceType, serviceType);
                     }
                 }
-            }
 
+                var startUps = assembly.GetInstances<IServerStartup>();
+                foreach (var startup in startUps)
+                {
+                    startup.ConfigureServices(services);
+                }
+
+                if (runtime == Runtime.Server)
+                {
+                    assembly.GetInstances<IClientStartup>()
+                        .ToList()
+                        .ForEach(x => x.ConfigureServices(services));
+                }
+            }
             return services;
         }
 
-        private static void LoadAssemblies(string pattern)
+        private static void LoadAssemblies()
         {
-            var assemblyPath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-            var assembliesFolder = new DirectoryInfo(assemblyPath);
+            var assemblyPath = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
+            if (assemblyPath == null) return;
 
-            // iterate through Oqtane theme assemblies in /bin ( filter is narrow to optimize loading process )
-            foreach (var file in assembliesFolder.EnumerateFiles($"*.{pattern}.*.dll"))
+            AssemblyLoadContext.Default.Resolving += ResolveDependencies;
+
+            var assembliesFolder = new DirectoryInfo(assemblyPath);
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            // iterate through Oqtane assemblies in /bin ( filter is narrow to optimize loading process )
+            foreach (var dll in assembliesFolder.EnumerateFiles($"*.dll", SearchOption.TopDirectoryOnly).Where(f => f.IsOqtaneAssembly()))
             {
-                // check if assembly is already loaded
-                var assembly = Assemblies.Where(a => a.Location == file.FullName).FirstOrDefault();
-                if (assembly == null)
+                AssemblyName assemblyName;
+                try
                 {
-                    // load assembly from stream to prevent locking file ( as long as dependencies are in /bin they will load as well )
-                    assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(File.ReadAllBytes(file.FullName)));
-                    if (pattern == "Module")
+                    assemblyName = AssemblyName.GetAssemblyName(dll.FullName);
+                }
+                catch
+                {
+                    Console.WriteLine($"Not Assembly : {dll.Name}");
+                    continue;
+                }
+
+                if (!assemblies.Any(a => AssemblyName.ReferenceMatchesDefinition(assemblyName, a.GetName())))
+                {
+                    try
                     {
-                        // build a list of module assemblies
-                        _oqtaneModuleAssemblies.Add(assembly);
+                        var pdb = Path.ChangeExtension(dll.FullName, ".pdb");
+                        Assembly assembly = null;
+
+                        // load assembly ( and symbols ) from stream to prevent locking files ( as long as dependencies are in /bin they will load as well )
+                        if (File.Exists(pdb))
+                        {
+                            assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(File.ReadAllBytes(dll.FullName)), new MemoryStream(File.ReadAllBytes(pdb)));
+                        }
+                        else
+                        {
+                            assembly = AssemblyLoadContext.Default.LoadFromStream(new MemoryStream(File.ReadAllBytes(dll.FullName)));
+                        }
+                        Console.WriteLine($"Loaded : {assemblyName}");
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Failed : {assemblyName}\n{e}");
                     }
                 }
             }
         }
+
+        private static Assembly ResolveDependencies(AssemblyLoadContext context, AssemblyName name)
+        {
+            var assemblyPath = Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location) + "\\" + name.Name + ".dll";
+            if (File.Exists(assemblyPath))
+            {
+                return context.LoadFromStream(new MemoryStream(File.ReadAllBytes(assemblyPath)));
+            }
+            else
+            {
+                return null;
+            }
+        }
+
     }
 }

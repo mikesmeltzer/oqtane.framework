@@ -1,9 +1,9 @@
 ﻿@namespace Oqtane.Modules.Controls
-@inherits ModuleBase
+@inherits ModuleControlBase
 
-@if (visible)
+@if (_visible)
 {
-    <div class="app-admin-modal">
+    <div class="app-actiondialog">
         <div class="modal" tabindex="-1" role="dialog">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -17,7 +17,7 @@
                     <div class="modal-footer">
                         @if (!string.IsNullOrEmpty(Action))
                         {
-                            <button type="button" class="@Class" @onclick="Confirm">@Action</button>
+                            <button type="button" class="@Class" @onclick="Confirm">@((MarkupString)_iconSpan) @Action</button>
                         }
                         <button type="button" class="btn btn-secondary" @onclick="DisplayModal">Cancel</button>
                     </div>
@@ -26,19 +26,24 @@
         </div>
     </div>
 }
-@if (authorized)
+@if (_authorized)
 {
     if (Disabled)
     {
-        <button class="@Class" disabled @onclick="DisplayModal">@Text</button>
+        <button class="@Class" disabled>@((MarkupString)_iconSpan) @Text</button>
     }
     else
     {
-        <button class="@Class" @onclick="DisplayModal">@Text</button>
+        <button class="@Class" @onclick="DisplayModal">@((MarkupString)_iconSpan) @Text</button>
     }
 }
 
 @code {
+    private bool _visible = false;
+    private bool _editmode = false;
+    private bool _authorized = false;
+    private string _iconSpan = string.Empty;
+
     [Parameter]
     public string Header { get; set; } // required
 
@@ -57,18 +62,17 @@
     [Parameter]
     public string Class { get; set; } // optional
 
-	[Parameter]
-	public bool Disabled { get; set; } // optional
-	
     [Parameter]
-    public string EditMode { get; set; } // optional - specifies if a user must be in edit mode to see the action - default is true
+    public bool Disabled { get; set; } // optional
+
+    [Parameter]
+    public string EditMode { get; set; } // optional - specifies if an authorized user must be in edit mode to see the action - default is false
 
     [Parameter]
     public Action OnClick { get; set; } // required if an Action is specified - executes a method in the calling component
 
-    bool visible = false;
-    bool editmode = true;
-    bool authorized = false;
+    [Parameter]
+    public string IconName { get; set; } // optional - specifies an icon for the link - default is no icon
 
     protected override void OnParametersSet()
     {
@@ -80,17 +84,24 @@
         {
             Class = "btn btn-success";
         }
+
         if (!string.IsNullOrEmpty(EditMode))
         {
-            editmode = bool.Parse(EditMode);
+            _editmode = bool.Parse(EditMode);
         }
-        authorized = IsAuthorized();
+
+        if (!string.IsNullOrEmpty(IconName))
+        {
+            _iconSpan = $"<span class=\"oi oi-{IconName}\"></span>&nbsp;";
+        }
+
+        _authorized = IsAuthorized();
     }
 
     private bool IsAuthorized()
     {
         bool authorized = false;
-        if (PageState.EditMode || !editmode)
+        if (PageState.EditMode || !_editmode)
         {
             SecurityAccessLevel security = SecurityAccessLevel.Host;
             if (Security == null)
@@ -99,8 +110,8 @@
                 Type moduleType = Type.GetType(typename);
                 if (moduleType != null)
                 {
-                    var moduleobject = Activator.CreateInstance(moduleType);
-                    security = (SecurityAccessLevel)moduleType.GetProperty("SecurityAccessLevel").GetValue(moduleobject, null);
+                    var moduleobject = Activator.CreateInstance(moduleType) as IModuleControl;
+                    security = moduleobject.SecurityAccessLevel;
                 }
                 else
                 {
@@ -117,10 +128,10 @@
                     authorized = true;
                     break;
                 case SecurityAccessLevel.View:
-                    authorized = UserSecurity.IsAuthorized(PageState.User, "View", ModuleState.Permissions);
+                    authorized = UserSecurity.IsAuthorized(PageState.User,PermissionNames.View, ModuleState.Permissions);
                     break;
                 case SecurityAccessLevel.Edit:
-                    authorized = UserSecurity.IsAuthorized(PageState.User, "Edit", ModuleState.Permissions);
+                    authorized = UserSecurity.IsAuthorized(PageState.User,PermissionNames.Edit, ModuleState.Permissions);
                     break;
                 case SecurityAccessLevel.Admin:
                     authorized = UserSecurity.IsAuthorized(PageState.User, Constants.AdminRole);
@@ -135,7 +146,7 @@
 
     private void DisplayModal()
     {
-        visible = !visible;
+        _visible = !_visible;
         StateHasChanged();
     }
 

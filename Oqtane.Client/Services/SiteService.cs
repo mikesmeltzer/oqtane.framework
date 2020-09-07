@@ -2,62 +2,53 @@
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Linq;
-using Microsoft.AspNetCore.Components;
 using System.Collections.Generic;
 using Oqtane.Shared;
-using System.Net;
 
 namespace Oqtane.Services
 {
     public class SiteService : ServiceBase, ISiteService
     {
-        private readonly HttpClient http;
-        private readonly SiteState sitestate;
-        private readonly NavigationManager NavigationManager;
+        
+        private readonly SiteState _siteState;
 
-        public SiteService(HttpClient http, SiteState sitestate, NavigationManager NavigationManager)
+        public SiteService(HttpClient http, SiteState siteState) : base(http)
         {
-            this.http = http;
-            this.sitestate = sitestate;
-            this.NavigationManager = NavigationManager;
+            
+            _siteState = siteState;
         }
 
-        private string apiurl
+        private string Apiurl => CreateApiUrl(_siteState.Alias, "Site");
+
+        public void SetAlias(Alias alias)
         {
-            get { return CreateApiUrl(sitestate.Alias, NavigationManager.Uri, "Site"); }
+            base.Alias = alias;
         }
 
         public async Task<List<Site>> GetSitesAsync()
         {
-            List<Site> sites = await http.GetJsonAsync<List<Site>>(apiurl);
+            List<Site> sites = await GetJsonAsync<List<Site>>(Apiurl);
             return sites.OrderBy(item => item.Name).ToList();
         }
 
-        public async Task<Site> GetSiteAsync(int SiteId)
+        public async Task<Site> GetSiteAsync(int siteId)
         {
-            return await http.GetJsonAsync<Site>(apiurl + "/" + SiteId.ToString());
+            return await GetJsonAsync<Site>($"{Apiurl}/{siteId}");
         }
 
-        public async Task<Site> AddSiteAsync(Site Site, Alias Alias)
+        public async Task<Site> AddSiteAsync(Site site)
         {
-            if (Alias == null)
-            {
-                return await http.PostJsonAsync<Site>(apiurl, Site);
-            }
-            else
-            {
-                return await http.PostJsonAsync<Site>(apiurl + "?alias=" + WebUtility.UrlEncode(Alias.Name), Site);
-            }
+            return await PostJsonAsync<Site>(Apiurl, site);
         }
 
-        public async Task<Site> UpdateSiteAsync(Site Site)
+        public async Task<Site> UpdateSiteAsync(Site site)
         {
-            return await http.PutJsonAsync<Site>(apiurl + "/" + Site.SiteId.ToString(), Site);
+            return await PutJsonAsync<Site>($"{Apiurl}/{site.SiteId}", site);
         }
 
-        public async Task DeleteSiteAsync(int SiteId)
+        public async Task DeleteSiteAsync(int siteId)
         {
-            await http.DeleteAsync(apiurl + "/" + SiteId.ToString());
+            await DeleteAsync($"{Apiurl}/{siteId}");
         }
     }
 }

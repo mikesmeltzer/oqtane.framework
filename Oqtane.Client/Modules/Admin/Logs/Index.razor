@@ -2,7 +2,7 @@
 @inherits ModuleBase
 @inject ILogService LogService
 
-@if (Logs == null)
+@if (_logs == null)
 {
     <p><em>Loading...</em></p>
 }
@@ -45,11 +45,11 @@ else
         </tr>
     </table>
 
-    @if (Logs.Any())
+    @if (_logs.Any())
     {
-        <Pager Items="@Logs">
+        <Pager Items="@_logs">
             <Header>
-                <th>&nbsp;</th>
+                <th style="width: 1px;">&nbsp;</th>
                 <th>Date</th>
                 <th>Level</th>
                 <th>Feature</th>
@@ -71,12 +71,12 @@ else
 }
 
 @code {
-    public override SecurityAccessLevel SecurityAccessLevel { get { return SecurityAccessLevel.Admin; } }
+    private string _level = "-";
+    private string _function = "-";
+    private string _rows = "10";
+    private List<Log> _logs;
 
-    string level = "-";
-    string function = "-";
-    string rows = "10";
-    List<Log> Logs;
+    public override SecurityAccessLevel SecurityAccessLevel => SecurityAccessLevel.Host;
 
     protected override async Task OnInitializedAsync()
     {
@@ -95,7 +95,7 @@ else
     {
         try
         {
-            level = (string)e.Value;
+            _level = (string)e.Value;
             await GetLogs();
             StateHasChanged();
         }
@@ -110,7 +110,7 @@ else
     {
         try
         {
-            function = (string)e.Value;
+            _function = (string)e.Value;
             await GetLogs();
             StateHasChanged();
         }
@@ -126,7 +126,7 @@ else
     {
         try
         {
-            rows = (string)e.Value;
+            _rows = (string)e.Value;
             await GetLogs();
             StateHasChanged();
         }
@@ -139,12 +139,12 @@ else
 
     private async Task GetLogs()
     {
-        Logs = await LogService.GetLogsAsync(PageState.Site.SiteId, ((level == "-") ? "" : level), ((function == "-") ? "" : function), int.Parse(rows));
+        _logs = await LogService.GetLogsAsync(PageState.Site.SiteId, ((_level == "-") ? string.Empty : _level), ((_function == "-") ? string.Empty : _function), int.Parse(_rows));
     }
 
     private string GetClass(string function)
     {
-        string classname = "";
+        string classname = string.Empty;
         switch (function)
         {
             case "Create":
@@ -163,7 +163,7 @@ else
                 classname = "table-secondary";
                 break;
             default:
-                classname = "";
+                classname = string.Empty;
                 break;
         }
         return classname;
